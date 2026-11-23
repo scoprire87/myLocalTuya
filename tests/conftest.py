@@ -31,16 +31,22 @@ class FakeTuya:
     state: dict[str, dict] = {}
     accepted_version: float | None = None
     instances: list["FakeTuya"] = []
+    # gateway id -> {cid: online}
+    gateways: dict[str, dict[str, bool]] = {}
 
-    def __init__(self, dev_id, address=None, local_key="", version=3.1, persist=False, **kw):
+    def __init__(self, dev_id, address=None, local_key="", version=3.1, persist=False,
+                 cid=None, parent=None, **kw):
         self.id = dev_id
         self.address = address
         self.version = version
-        self.socket, self._peer = socket.socketpair()
-        self.socket.setblocking(False)
+        self.cid = cid
+        self.parent = parent
         self.raw_recv = []
         self.sent = []
         self._pending = []
+        if parent is None:
+            self.socket, self._peer = socket.socketpair()
+            self.socket.setblocking(False)
         FakeTuya.instances.append(self)
 
     def set_socketRetryLimit(self, _):
@@ -50,16 +56,34 @@ class FakeTuya:
         pass
 
     def status(self, nowait=False):
+        if self.parent is not None:  # sub-device: answer comes asynchronously
+            self.parent.push({"dps": dict(FakeTuya.state[self.id]), "cid": self.cid})
+            return None
         if nowait:
             return None
         if FakeTuya.accepted_version and self.version != FakeTuya.accepted_version:
             return {"Error": "Check device key or version", "Err": "914"}
+        if self.id in FakeTuya.gateways and not FakeTuya.state.get(self.id):
+            return {"Error": "Invalid JSON Response from Device", "Err": "900"}
         return {"dps": dict(FakeTuya.state[self.id])}
+
+    def subdev_query(self, nowait=False):
+        nodes = FakeTuya.gateways.get(self.id, {})
+        self.push({
+            "reqType": "subdev_online_stat_query",
+            "data": {
+                "online": [c for c, on in nodes.items() if on],
+                "offline": [c for c, on in nodes.items() if not on],
+            },
+        })
 
     def set_multiple_values(self, data, nowait=False):
         self.sent.append(dict(data))
         FakeTuya.state[self.id].update(data)
-        self.push({"dps": dict(data)})
+        if self.parent is not None:
+            self.parent.push({"dps": dict(data), "cid": self.cid})
+        else:
+            self.push({"dps": dict(data)})
 
     def push(self, msg):
         self._pending.append(msg)
@@ -83,6 +107,8 @@ class FakeTuya:
         return None
 
     def close(self):
+        if self.parent is not None:
+            return
         for sock in (self.socket, self._peer):
             try:
                 sock.close()
@@ -96,5 +122,6 @@ def fake_tuya():
     FakeTuya.state = {}
     FakeTuya.instances = []
     FakeTuya.accepted_version = None
+    FakeTuya.gateways = {}
     with patch("custom_components.mylocaltuya.device.tinytuya.Device", FakeTuya):
         yield FakeTuya

@@ -14,7 +14,7 @@
       },
       "devices": {
         "title": "Choose devices",
-        "description": "Found {count} devices that can be controlled locally. IP address and protocol version are detected automatically.\n\nNot supported yet (gateway sub-devices or no DP mapping): {skipped}",
+        "description": "Found {count} locally controllable devices. IP address and protocol version are detected automatically; sub-devices (e.g. water timers) go through their hub, which is added automatically.\n\nNot supported (no DP mapping): {skipped}",
         "data": {
           "selected": "Devices"
         }
@@ -40,7 +40,7 @@
         "title": "myLocalTuya",
         "menu_options": {
           "refresh": "Refresh devices and keys from the cloud",
-          "pick_device": "Set IP address manually",
+          "pick_device": "Set IP or hub manually",
           "relogin": "Log in again with the QR code"
         }
       },
@@ -63,6 +63,14 @@
         "data": {
           "manual_host": "IP address",
           "version": "Protocol version"
+        }
+      },
+      "sub_device": {
+        "title": "{name}",
+        "description": "Choose the hub the device is connected to. Leave the node id empty to detect it automatically (works when the hub has a single unrecognised sub-device).\n\nNode ids seen by the hub and not assigned: {unknown}",
+        "data": {
+          "parent_id": "Hub / gateway",
+          "node_id": "Node id"
         }
       }
     },
@@ -117,6 +125,9 @@
       },
       "switch_usb_n": {
         "name": "USB {index}"
+      },
+      "switch_weather": {
+        "name": "Weather pause"
       }
     },
     "sensor": {
@@ -143,6 +154,15 @@
       },
       "fault": {
         "name": "Fault"
+      },
+      "work_state": {
+        "name": "State"
+      },
+      "time_use": {
+        "name": "Watering time"
+      },
+      "use_time": {
+        "name": "Watering time"
       }
     },
     "select": {
@@ -160,6 +180,12 @@
       },
       "windspeed": {
         "name": "Fan speed"
+      },
+      "weather_delay": {
+        "name": "Weather delay"
+      },
+      "work_state": {
+        "name": "State"
       }
     },
     "number": {

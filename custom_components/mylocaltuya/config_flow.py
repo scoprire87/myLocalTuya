@@ -36,6 +36,8 @@ from .const import (
     DEV_ID,
     DEV_MANUAL_HOST,
     DEV_NAME,
+    DEV_NODE_ID,
+    DEV_PARENT,
     DEV_SUB,
     DEV_VERSION,
     DISCOVERY_WAIT,
@@ -48,6 +50,39 @@ from .discovery import async_get_discovery, async_release_discovery
 _LOGGER = logging.getLogger(__name__)
 
 CONF_SELECTED = "selected"
+
+
+def candidate_devices(devices: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Devices that can be set up: anything with DPs, plus gateways of sub-devices."""
+    parents = {d.get(DEV_PARENT) for d in devices if d[DEV_SUB]}
+    return {
+        d[DEV_ID]: d
+        for d in devices
+        if d["dps"] or (not d[DEV_SUB] and d[DEV_ID] in parents)
+    }
+
+
+def with_gateways(
+    chosen: list[dict[str, Any]], devices: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Add the gateway of every chosen sub-device."""
+    by_id = {d[DEV_ID]: d for d in devices}
+    ids = {d[DEV_ID] for d in chosen}
+    result = list(chosen)
+    for dev in chosen:
+        parent = dev.get(DEV_PARENT)
+        if dev[DEV_SUB] and parent in by_id and parent not in ids:
+            result.append(by_id[parent])
+            ids.add(parent)
+    return result
+
+
+def _label(dev: dict[str, Any], devices: dict[str, dict[str, Any]]) -> str:
+    if dev[DEV_SUB]:
+        parent = devices.get(dev.get(DEV_PARENT) or "")
+        via = parent[DEV_NAME] if parent else "?"
+        return f"{dev[DEV_NAME]} (via {via})"
+    return dev[DEV_NAME]
 
 
 def _qr_schema(qr_token: str) -> vol.Schema:
@@ -173,28 +208,26 @@ class MyLocalTuyaConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="cannot_fetch_devices")
             auth[CONF_TOKEN_INFO] = cloud.token_info
             self._login.update(auth[CONF_TOKEN_INFO])
-            supported = [d for d in self._devices if not d[DEV_SUB] and d["dps"]]
-            if not supported:
+            if not candidate_devices(self._devices):
                 return self.async_abort(reason="no_devices")
 
-        candidates = {
-            d[DEV_ID]: d for d in self._devices if not d[DEV_SUB] and d["dps"]
-        }
+        candidates = candidate_devices(self._devices)
         if user_input is not None:
             chosen = [candidates[i] for i in user_input[CONF_SELECTED] if i in candidates]
+            chosen = with_gateways(chosen, self._devices)
             if not chosen:
                 return self.async_show_form(
                     step_id="devices",
                     data_schema=self._devices_schema(candidates),
                     errors={"base": "no_selection"},
                 )
-            await self._discover(chosen)
+            await self._discover([d for d in chosen if not d[DEV_SUB]])
             return self.async_create_entry(
                 title=auth[CONF_USERNAME] or "Tuya",
                 data={**auth, CONF_DEVICES: {d[DEV_ID]: d for d in chosen}},
             )
 
-        skipped = [d[DEV_NAME] for d in self._devices if d[DEV_SUB] or not d["dps"]]
+        skipped = [d[DEV_NAME] for d in self._devices if d[DEV_ID] not in candidates]
         return self.async_show_form(
             step_id="devices",
             data_schema=self._devices_schema(candidates),
@@ -207,7 +240,7 @@ class MyLocalTuyaConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     def _devices_schema(candidates: dict[str, dict]) -> vol.Schema:
         options = [
-            selector.SelectOptionDict(value=dev_id, label=dev[DEV_NAME])
+            selector.SelectOptionDict(value=dev_id, label=_label(dev, candidates))
             for dev_id, dev in candidates.items()
         ]
         return vol.Schema(
@@ -285,11 +318,11 @@ class MyLocalTuyaOptionsFlow(OptionsFlow):
             self._token = cloud.token_info
         fetched = self._fetched
 
-        candidates = {d[DEV_ID]: d for d in fetched if not d[DEV_SUB] and d["dps"]}
+        candidates = candidate_devices(fetched)
         current = entry.data[CONF_DEVICES]
         if user_input is None:
             options = [
-                selector.SelectOptionDict(value=dev_id, label=dev[DEV_NAME])
+                selector.SelectOptionDict(value=dev_id, label=_label(dev, candidates))
                 for dev_id, dev in candidates.items()
             ]
             return self.async_show_form(
@@ -305,16 +338,13 @@ class MyLocalTuyaOptionsFlow(OptionsFlow):
                 ),
             )
 
-        devices = {}
-        for dev_id in user_input[CONF_SELECTED]:
-            if dev_id not in candidates:
-                continue
-            new = dict(candidates[dev_id])
-            old = current.get(dev_id, {})
-            for key in (DEV_HOST, DEV_VERSION, DEV_MANUAL_HOST):
-                if key in old:
-                    new[key] = old[key]
-            devices[dev_id] = new
+        from . import merge_device  # noqa: PLC0415
+
+        chosen = [candidates[i] for i in user_input[CONF_SELECTED] if i in candidates]
+        devices = {
+            dev[DEV_ID]: merge_device(dict(dev), current.get(dev[DEV_ID], {}))
+            for dev in with_gateways(chosen, fetched)
+        }
         self.hass.config_entries.async_update_entry(
             entry,
             data={**entry.data, CONF_DEVICES: devices, CONF_TOKEN_INFO: self._token},
@@ -352,6 +382,8 @@ class MyLocalTuyaOptionsFlow(OptionsFlow):
         entry = self.config_entry
         devices = dict(entry.data[CONF_DEVICES])
         conf = dict(devices[self._device_id])
+        if conf.get(DEV_SUB):
+            return await self.async_step_sub_device(user_input)
         if user_input is not None:
             host = (user_input.get(DEV_MANUAL_HOST) or "").strip()
             version = user_input.get(DEV_VERSION, "auto")
@@ -390,5 +422,57 @@ class MyLocalTuyaOptionsFlow(OptionsFlow):
                 "name": conf.get(DEV_NAME, ""),
                 "host": conf.get(DEV_HOST) or "-",
                 "version": conf.get(DEV_VERSION) or "-",
+            },
+        )
+
+    async def async_step_sub_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose the gateway and node id of a sub-device."""
+        entry = self.config_entry
+        devices = dict(entry.data[CONF_DEVICES])
+        conf = dict(devices[self._device_id])
+        gateways = {
+            dev_id: dev for dev_id, dev in devices.items() if not dev.get(DEV_SUB)
+        }
+        if user_input is not None:
+            conf[DEV_PARENT] = user_input[DEV_PARENT]
+            node_id = (user_input.get(DEV_NODE_ID) or "").strip()
+            if node_id:
+                conf[DEV_NODE_ID] = node_id
+            else:
+                conf.pop(DEV_NODE_ID, None)
+            devices[self._device_id] = conf
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_DEVICES: devices}
+            )
+            self.hass.config_entries.async_schedule_reload(entry.entry_id)
+            return self.async_create_entry(data=dict(entry.options))
+
+        unknown: list[str] = []
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime and (gw := runtime.devices.get(conf.get(DEV_PARENT) or "")):
+            unknown = list(getattr(gw, "unknown_cids", []))
+        schema: dict[Any, Any] = {
+            vol.Required(
+                DEV_PARENT, default=conf.get(DEV_PARENT) or vol.UNDEFINED
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=i, label=d[DEV_NAME])
+                        for i, d in gateways.items()
+                    ]
+                )
+            ),
+            vol.Optional(
+                DEV_NODE_ID, description={"suggested_value": conf.get(DEV_NODE_ID, "")}
+            ): str,
+        }
+        return self.async_show_form(
+            step_id="sub_device",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "name": conf.get(DEV_NAME, ""),
+                "unknown": ", ".join(unknown) if unknown else "-",
             },
         )

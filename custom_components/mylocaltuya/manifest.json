@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/scoprire87/myLocalTuya/issues",
   "loggers": ["tinytuya", "tuya_sharing"],
   "requirements": ["tinytuya==1.21.1", "tuya-device-sharing-sdk==0.2.15"],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

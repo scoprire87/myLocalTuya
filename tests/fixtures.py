@@ -133,3 +133,62 @@ def device_conf(dev_id, name, category, spec, status, host="192.168.1.50"):
         "host": host,
         "version": "3.3",
     }
+
+
+VALVE_SPEC = _spec(
+    [
+        ("switch", "Boolean", {}),
+        ("countdown", "Integer", {"unit": "s", "min": 0, "max": 86400, "scale": 0, "step": 1}),
+        ("weather_delay", "Enum", {"range": ["cancel", "24h", "48h", "72h"]}),
+    ],
+    [
+        ("switch", "Boolean", {}),
+        ("countdown", "Integer", {"unit": "s", "min": 0, "max": 86400, "scale": 0, "step": 1}),
+        ("weather_delay", "Enum", {"range": ["cancel", "24h", "48h", "72h"]}),
+        ("battery_percentage", "Integer", {"unit": "%", "min": 0, "max": 100, "scale": 0, "step": 1}),
+        ("work_state", "Enum", {"range": ["auto", "manual", "idle"]}),
+    ],
+)
+VALVE_STATUS = {
+    "dpStatusRelationDTOS": [
+        _rel(1, "switch", "bool", {}),
+        _rel(11, "countdown", "value", {}),
+        _rel(10, "weather_delay", "enum", {}),
+        _rel(7, "battery_percentage", "value", {}),
+        _rel(12, "work_state", "enum", {}),
+    ]
+}
+
+
+def hub_conf(dev_id, name, host="192.168.1.60"):
+    """A hub without DPs of its own."""
+    return {
+        "id": dev_id,
+        "name": name,
+        "local_key": "fedcba9876543210",
+        "category": "wfcon",
+        "product_id": "hubpid",
+        "product_name": "Wi-Fi hub",
+        "sub": False,
+        "dps": {},
+        "host": host,
+        "version": "3.3",
+    }
+
+
+def valve_conf(dev_id, name, parent, node_id=None):
+    """A water timer behind a hub."""
+    from custom_components.mylocaltuya.cloud import build_dps
+
+    return {
+        "id": dev_id,
+        "name": name,
+        "local_key": "",
+        "category": "sfkzq",
+        "product_id": "valvepid",
+        "product_name": "Smart Water Timer",
+        "sub": True,
+        "dps": build_dps(VALVE_SPEC, VALVE_STATUS),
+        "parent_id": parent,
+        "node_id": node_id,
+    }

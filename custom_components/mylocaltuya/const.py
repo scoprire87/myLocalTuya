@@ -32,6 +32,12 @@ DEV_HOST = "host"
 DEV_VERSION = "version"
 DEV_MANUAL_HOST = "manual_host"
 DEV_DPS = "dps"
+DEV_PARENT = "parent_id"
+DEV_NODE_ID = "node_id"
+DEV_RAW_KEYS = "cloud_fields"
+
+# Tuya categories of gateways/hubs (Zigbee, BLE, mesh, water-timer hubs)
+GATEWAY_CATEGORIES = {"wg", "wg2", "wgsxj", "wfcon", "zigbee", "blegw", "wnykq_gw"}
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,

@@ -8,6 +8,7 @@ import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 
 from .cloud import CloudError, TuyaCloud
 from .const import (
@@ -19,10 +20,15 @@ from .const import (
     CONF_USER_CODE,
     DEV_HOST,
     DEV_MANUAL_HOST,
+    DEV_NODE_ID,
+    DEV_PARENT,
+    DEV_PRODUCT_NAME,
+    DEV_SUB,
     DEV_VERSION,
+    DOMAIN,
     PLATFORMS,
 )
-from .device import TuyaLocalDevice
+from .device import TuyaBaseDevice, TuyaLocalDevice, TuyaSubDevice
 from .discovery import TuyaDiscovery, async_get_discovery, async_release_discovery
 from .mapping import Plan, plan_entities
 
@@ -30,6 +36,17 @@ _LOGGER = logging.getLogger(__name__)
 
 # Keys that belong to the local setup and must survive a cloud refresh
 LOCAL_KEYS = (DEV_HOST, DEV_VERSION, DEV_MANUAL_HOST)
+# Keys kept from the old config when the cloud does not provide them
+STICKY_KEYS = (DEV_PARENT, DEV_NODE_ID)
+
+
+def merge_device(new: dict, old: dict) -> dict:
+    """Merge freshly downloaded data with what we learned locally."""
+    merged = {**new, **{k: old[k] for k in LOCAL_KEYS if k in old}}
+    for key in STICKY_KEYS:
+        if not merged.get(key) and old.get(key):
+            merged[key] = old[key]
+    return merged
 
 
 @dataclass
@@ -37,8 +54,8 @@ class RuntimeData:
     """Objects living while the entry is loaded."""
 
     discovery: TuyaDiscovery
-    devices: dict[str, TuyaLocalDevice] = field(default_factory=dict)
-    plans: dict[TuyaLocalDevice, list[Plan]] = field(default_factory=dict)
+    devices: dict[str, TuyaBaseDevice] = field(default_factory=dict)
+    plans: dict[TuyaBaseDevice, list[Plan]] = field(default_factory=dict)
     last_refresh: dict[str, float] = field(default_factory=dict)
 
 
@@ -86,13 +103,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyLocalTuyaConfigEntry) 
             hass, async_refresh_from_cloud(hass, entry, {dev_id}), "mylocaltuya_refresh"
         )
 
-    for dev_id, conf in entry.data[CONF_DEVICES].items():
-        device = TuyaLocalDevice(hass, conf, discovery, network_changed, need_refresh)
+    @callback
+    def node_id_detected(dev_id: str, node_id: str) -> None:
+        devices = dict(entry.data[CONF_DEVICES])
+        if dev_id not in devices:
+            return
+        devices[dev_id] = {**devices[dev_id], DEV_NODE_ID: node_id}
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_DEVICES: devices}
+        )
+        if isinstance(device := runtime.devices.get(dev_id), TuyaSubDevice):
+            device.async_update_config(devices[dev_id])
+
+    confs = entry.data[CONF_DEVICES]
+    # Directly connected devices (and gateways) first, then sub-devices
+    for dev_id, conf in sorted(confs.items(), key=lambda kv: bool(kv[1].get(DEV_SUB))):
+        device: TuyaBaseDevice
+        if conf.get(DEV_SUB):
+            device = TuyaSubDevice(hass, conf)
+            gateway = runtime.devices.get(conf.get(DEV_PARENT) or "")
+            if isinstance(gateway, TuyaLocalDevice):
+                gateway.async_add_child(device)
+        else:
+            device = TuyaLocalDevice(
+                hass, conf, discovery, network_changed, need_refresh, node_id_detected
+            )
         runtime.devices[dev_id] = device
         runtime.plans[device] = plan_entities(conf.get("category", ""), device.spec)
 
+    # Register devices up front: hubs without entities must exist for via_device
+    registry = dr.async_get(hass)
     for device in runtime.devices.values():
-        device.async_start()
+        parent = device.conf.get(DEV_PARENT) if device.conf.get(DEV_SUB) else None
+        registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, device.id)},
+            name=device.name,
+            manufacturer="Tuya",
+            model=device.conf.get(DEV_PRODUCT_NAME) or None,
+            via_device=(DOMAIN, parent) if parent in runtime.devices else None,
+        )
+
+    for device in runtime.devices.values():
+        if isinstance(device, TuyaLocalDevice):
+            device.async_start()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -103,7 +157,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: MyLocalTuyaConfigEntry)
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         for device in entry.runtime_data.devices.values():
-            await device.async_stop()
+            if isinstance(device, TuyaLocalDevice):
+                await device.async_stop()
         async_release_discovery(hass)
     return unloaded
 
@@ -133,7 +188,7 @@ async def async_refresh_from_cloud(
         old = devices.get(new["id"])
         if old is None:
             continue
-        merged = {**new, **{k: old[k] for k in LOCAL_KEYS if k in old}}
+        merged = merge_device(new, old)
         devices[new["id"]] = merged
         runtime: RuntimeData | None = getattr(entry, "runtime_data", None)
         if runtime and (device := runtime.devices.get(new["id"])) is not None:

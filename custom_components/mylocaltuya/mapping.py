@@ -58,6 +58,7 @@ TRANSLATED = {
         "eco",
         "overcharge_switch",
         "switch_usb",
+        "switch_weather",
     },
     Platform.SENSOR: {
         "cur_power",
@@ -68,8 +69,19 @@ TRANSLATED = {
         "humidity_value",
         "battery_percentage",
         "fault",
+        "work_state",
+        "time_use",
+        "use_time",
     },
-    Platform.SELECT: {"relay_status", "light_mode", "work_mode", "mode", "windspeed"},
+    Platform.SELECT: {
+        "relay_status",
+        "light_mode",
+        "work_mode",
+        "mode",
+        "windspeed",
+        "weather_delay",
+        "work_state",
+    },
     Platform.NUMBER: set(),
     Platform.BINARY_SENSOR: set(),
 }

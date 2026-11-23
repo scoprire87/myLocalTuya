@@ -130,3 +130,61 @@ async def test_protocol_version_autodetect(hass: HomeAssistant, fake_tuya) -> No
     await _wait(hass, lambda: hass.states.get("switch.presa").state == "on")
     await _wait(hass, lambda: entry.data["devices"]["plug1"]["version"] == "3.4")
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_gateway_sub_device(hass: HomeAssistant, fake_tuya) -> None:
+    """A water timer behind a hub: node id detection, state and commands."""
+    from .fixtures import hub_conf, valve_conf
+
+    fake_tuya.gateways = {"hub1": {"node-abc": True}}
+    fake_tuya.state = {
+        "hub1": {},
+        "valve1": {"1": False, "11": 600, "10": "cancel", "7": 100, "12": "manual"},
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="uid",
+        title="test",
+        data={
+            "user_code": "code",
+            "terminal_id": "term",
+            "endpoint": "https://example.invalid",
+            "uid": "uid",
+            "username": "me",
+            "token_info": {},
+            "devices": {
+                "hub1": hub_conf("hub1", "Irrigazione"),
+                # node id unknown: must be detected from the hub
+                "valve1": valve_conf("valve1", "Timer", parent="hub1"),
+            },
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+
+    await _wait(hass, lambda: hass.states.get("switch.timer").state == "off")
+    assert entry.data["devices"]["valve1"]["node_id"] == "node-abc"
+    assert hass.states.get("sensor.timer_battery").state == "100"
+    assert hass.states.get("select.timer_weather_delay").state == "cancel"
+
+    # Device registry: the timer is linked to its hub
+    from homeassistant.helpers import device_registry as dr
+
+    registry = dr.async_get(hass)
+    hub = registry.async_get_device(identifiers={(DOMAIN, "hub1")})
+    timer = registry.async_get_device(identifiers={(DOMAIN, "valve1")})
+    assert hub is not None and timer.via_device_id == hub.id
+
+    await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.timer"}, blocking=True)
+    await _wait(hass, lambda: hass.states.get("switch.timer").state == "on")
+    child = next(d for d in fake_tuya.instances if d.id == "valve1")
+    assert child.cid == "node-abc"
+    assert child.sent[-1] == {"1": True}
+
+    # Hub reports the timer offline -> unavailable
+    fake_tuya.gateways["hub1"]["node-abc"] = False
+    gateway = next(d for d in fake_tuya.instances if d.id == "hub1")
+    gateway.subdev_query()
+    await _wait(hass, lambda: hass.states.get("switch.timer").state == STATE_UNAVAILABLE)
+
+    assert await hass.config_entries.async_unload(entry.entry_id)

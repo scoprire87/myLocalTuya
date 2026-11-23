@@ -8,7 +8,17 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.mylocaltuya.const import DOMAIN
 
-from .fixtures import LIGHT_SPEC, LIGHT_STATUS, PLUG_SPEC, PLUG_STATUS, device_conf
+from custom_components.mylocaltuya.cloud import assign_gateways
+
+from .fixtures import (
+    LIGHT_SPEC,
+    LIGHT_STATUS,
+    PLUG_SPEC,
+    PLUG_STATUS,
+    device_conf,
+    hub_conf,
+    valve_conf,
+)
 
 LOGIN = {
     "t": 1700000000000,
@@ -28,8 +38,14 @@ def _devices():
     for dev in (plug, bulb):
         dev.pop("host")
         dev.pop("version")
-    sub = dict(plug, id="sub1", name="Timer acqua", sub=True)
-    return [plug, bulb, sub]
+    hub = hub_conf("hub1", "Irrigazione")
+    hub.pop("host")
+    hub.pop("version")
+    valve = valve_conf("valve1", "Timer acqua", parent=None)
+    broken = dict(plug, id="x1", name="Senza DP", dps={})
+    devices = [plug, bulb, hub, valve, broken]
+    assign_gateways(devices)
+    return devices
 
 
 async def test_full_flow(hass: HomeAssistant) -> None:
@@ -62,10 +78,16 @@ async def test_full_flow(hass: HomeAssistant) -> None:
 
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
         assert result["step_id"] == "devices"
-        assert "Timer acqua" in result["description_placeholders"]["skipped"]
+        assert result["description_placeholders"]["skipped"] == "Senza DP"
+        schema = result["data_schema"].schema
+        options = next(iter(schema.values())).config["options"]
+        labels = {o["value"]: o["label"] for o in options}
+        assert labels["valve1"] == "Timer acqua (via Irrigazione)"
+        assert "hub1" in labels
 
+        # Choosing only the sub-device brings its hub along
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"selected": ["plug1"]}
+            result["flow_id"], {"selected": ["plug1", "valve1"]}
         )
         await hass.async_block_till_done()
 
@@ -74,7 +96,8 @@ async def test_full_flow(hass: HomeAssistant) -> None:
     data = result["data"]
     assert data["user_code"] == "abc123"
     assert data["endpoint"] == "https://apigw.tuyaeu.com"
-    assert list(data["devices"]) == ["plug1"]
+    assert sorted(data["devices"]) == ["hub1", "plug1", "valve1"]
+    assert data["devices"]["valve1"]["parent_id"] == "hub1"
     assert data["devices"]["plug1"]["local_key"] == "0123456789abcdef"
     assert data["token_info"]["refresh_token"] == "r"
 

@@ -17,6 +17,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import MyLocalTuyaConfigEntry
 from .entity import TuyaLocalEntity, entities_for
 
+# Home Assistant 2026.11 renamed the temperature members to native_*
+_NATIVE = hasattr(ClimateEntity, "native_current_temperature")
+
 # Tuya mode value -> HA mode (first match wins when mapping back)
 TUYA_TO_HVAC = {
     "cold": HVACMode.COOL,
@@ -56,11 +59,15 @@ class TuyaClimate(TuyaLocalEntity, ClimateEntity):
         temp_set = self.role("temp_set")
         unit = (temp_set.unit if temp_set else None) or ""
         code = temp_set.code if temp_set else ""
-        self._attr_temperature_unit = (
+        temp_unit = (
             UnitOfTemperature.FAHRENHEIT
             if "F" in unit or code.endswith("_f")
             else UnitOfTemperature.CELSIUS
         )
+        if _NATIVE:
+            self._attr_native_temperature_unit = temp_unit
+        else:
+            self._attr_temperature_unit = temp_unit
         if temp_set is not None:
             features |= ClimateEntityFeature.TARGET_TEMPERATURE
             self._attr_min_temp = temp_set.min
@@ -88,14 +95,26 @@ class TuyaClimate(TuyaLocalEntity, ClimateEntity):
         self._attr_supported_features = features
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Room temperature."""
         return self.value("temp_current")
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         """Target temperature."""
         return self.value("temp_set")
+
+    if not _NATIVE:  # Home Assistant before 2026.11
+
+        @property
+        def current_temperature(self) -> float | None:
+            """Room temperature."""
+            return self.native_current_temperature
+
+        @property
+        def target_temperature(self) -> float | None:
+            """Target temperature."""
+            return self.native_target_temperature
 
     @property
     def hvac_mode(self) -> HVACMode | None:

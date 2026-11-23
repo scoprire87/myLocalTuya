@@ -36,9 +36,18 @@ Il codice utente si trova nell'app Smart Life in *Io → Impostazioni → Accoun
 
 Può convivere con Tuya / Xtend Tuya mentre lo provi (i dispositivi compariranno due volte).
 
-## Limiti attuali (fase 1)
+## Hub e sotto-dispositivi
 
-- I **sotto-dispositivi** collegati a un gateway Zigbee/BLE (es. timer irrigazione) non sono ancora supportati.
+I dispositivi Zigbee/Bluetooth collegati a un hub Tuya (es. timer irrigazione) sono comandati **in locale tramite l'hub**, sulla stessa connessione:
+
+- l'hub viene aggiunto automaticamente quando scegli un suo sotto-dispositivo;
+- il *node id* del sotto-dispositivo viene preso dal cloud oppure rilevato dall'hub (se l'hub ha un solo sotto-dispositivo non riconosciuto);
+- lo stato online/offline arriva dall'hub; se un sotto-dispositivo a batteria "dorme", può risultare non disponibile finché non si risveglia.
+
+Se il collegamento automatico non riesce, in *Opzioni → Imposta IP o hub manualmente* puoi scegliere l'hub e inserire il node id (la schermata mostra quelli visti dall'hub e non ancora assegnati).
+
+## Limiti attuali
+
 - Le funzioni di tipo Json/Raw (scene, musica, programmazioni) non vengono mappate automaticamente.
 
 ## Diagnostica

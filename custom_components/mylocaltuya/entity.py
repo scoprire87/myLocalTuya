@@ -7,8 +7,8 @@ from typing import Any
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 
-from .const import DEV_PRODUCT_NAME, DOMAIN
-from .device import TuyaLocalDevice
+from .const import DEV_PARENT, DEV_PRODUCT_NAME, DEV_SUB, DOMAIN
+from .device import TuyaBaseDevice
 from .dps import DP
 from .mapping import Plan
 
@@ -19,7 +19,7 @@ class TuyaLocalEntity(Entity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, device: TuyaLocalDevice, plan: Plan) -> None:
+    def __init__(self, device: TuyaBaseDevice, plan: Plan) -> None:
         """Initialize."""
         self.device = device
         self.plan = plan
@@ -30,6 +30,8 @@ class TuyaLocalEntity(Entity):
             manufacturer="Tuya",
             model=device.conf.get(DEV_PRODUCT_NAME) or None,
         )
+        if device.conf.get(DEV_SUB) and device.conf.get(DEV_PARENT):
+            self._attr_device_info["via_device"] = (DOMAIN, device.conf[DEV_PARENT])
         if not plan.has_name:
             self._attr_name = None
         elif plan.translation_key:

@@ -18,9 +18,13 @@ from .const import (
     DEV_ID,
     DEV_LOCAL_KEY,
     DEV_NAME,
+    DEV_NODE_ID,
+    DEV_PARENT,
     DEV_PRODUCT_ID,
+    DEV_RAW_KEYS,
     DEV_PRODUCT_NAME,
     DEV_SUB,
+    GATEWAY_CATEGORIES,
     TUYA_CLIENT_ID,
     TUYA_SCHEMA,
 )
@@ -179,6 +183,7 @@ class TuyaCloud:
                 if only is not None and item.get("id") not in only:
                     continue
                 devices.append(self._device_from_item(item))
+        assign_gateways(devices)
         return devices
 
     def _device_from_item(self, item: dict[str, Any]) -> dict[str, Any]:
@@ -201,4 +206,37 @@ class TuyaCloud:
             DEV_PRODUCT_NAME: item.get("product_name", ""),
             DEV_SUB: bool(item.get("sub")),
             DEV_DPS: build_dps(spec, status),
+            DEV_NODE_ID: _first(item, "node_id", "nodeId", "cid", "mesh_node_id"),
+            DEV_PARENT: _first(
+                item, "gateway_id", "gatewayId", "parent_id", "parentId", "parent_dev_id"
+            ),
+            # Only the field names, to understand new cloud payloads from diagnostics
+            DEV_RAW_KEYS: sorted(item),
         }
+
+
+def _first(item: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        if item.get(key):
+            return str(item[key])
+    return None
+
+
+def assign_gateways(devices: list[dict[str, Any]]) -> None:
+    """Fill in the gateway of sub-devices that the cloud did not link.
+
+    If an explicit parent is missing, a sub-device is attached to the only
+    gateway of the account (a gateway category, or a device without DPs).
+    """
+    by_id = {d[DEV_ID]: d for d in devices}
+    mains = [d for d in devices if not d[DEV_SUB]]
+    gateways = [d for d in mains if d.get(DEV_CATEGORY) in GATEWAY_CATEGORIES]
+    if not gateways:
+        gateways = [d for d in mains if not d.get(DEV_DPS)]
+    for dev in devices:
+        if not dev[DEV_SUB]:
+            continue
+        parent = dev.get(DEV_PARENT)
+        if parent in by_id and not by_id[parent][DEV_SUB]:
+            continue
+        dev[DEV_PARENT] = gateways[0][DEV_ID] if len(gateways) == 1 else None

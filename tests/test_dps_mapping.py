@@ -79,3 +79,28 @@ def test_ac_plans():
     assert _platforms(plans) == {(Platform.CLIMATE, "climate"), (Platform.SWITCH, "anion")}
     climate = plans[0]
     assert set(climate.dps) == {"switch", "temp_set", "temp_current", "mode", "fan"}
+
+
+def test_units():
+    from custom_components.mylocaltuya.dps import normalize_unit
+
+    assert normalize_unit("kW·h") == "kWh"
+    assert normalize_unit("℃") == "°C"
+
+
+def test_assign_gateways():
+    from custom_components.mylocaltuya.cloud import assign_gateways
+
+    hub_a = {"id": "a", "sub": False, "category": "wfcon", "dps": {}}
+    plug = {"id": "p", "sub": False, "category": "cz", "dps": {"1": {}}}
+    explicit = {"id": "s1", "sub": True, "parent_id": "a", "dps": {}}
+    guessed = {"id": "s2", "sub": True, "parent_id": None, "dps": {}}
+    assign_gateways([hub_a, plug, explicit, guessed])
+    assert explicit["parent_id"] == "a"
+    assert guessed["parent_id"] == "a"
+
+    # Two hubs: cannot guess
+    hub_b = {"id": "b", "sub": False, "category": "wg2", "dps": {}}
+    unknown = {"id": "s3", "sub": True, "parent_id": None, "dps": {}}
+    assign_gateways([hub_a, hub_b, unknown])
+    assert unknown["parent_id"] is None

@@ -14,7 +14,7 @@
       },
       "devices": {
         "title": "Scegli i dispositivi",
-        "description": "Trovati {count} dispositivi controllabili in locale. IP e versione del protocollo verranno rilevati automaticamente.\n\nNon supportati per ora (sotto-dispositivi di gateway o senza mappatura): {skipped}",
+        "description": "Trovati {count} dispositivi controllabili in locale. IP e versione del protocollo verranno rilevati automaticamente; i sotto-dispositivi (es. timer irrigazione) passano dal loro hub, che viene aggiunto da solo.\n\nNon supportati (senza mappatura DP): {skipped}",
         "data": {
           "selected": "Dispositivi"
         }
@@ -40,7 +40,7 @@
         "title": "myLocalTuya",
         "menu_options": {
           "refresh": "Aggiorna dispositivi e chiavi dal cloud",
-          "pick_device": "Imposta IP manualmente",
+          "pick_device": "Imposta IP o hub manualmente",
           "relogin": "Rifai l'accesso con il QR code"
         }
       },
@@ -63,6 +63,14 @@
         "data": {
           "manual_host": "Indirizzo IP",
           "version": "Versione protocollo"
+        }
+      },
+      "sub_device": {
+        "title": "{name}",
+        "description": "Scegli l'hub a cui è collegato il dispositivo. Lascia vuoto il node id per rilevarlo automaticamente (funziona se l'hub ha un solo sotto-dispositivo non riconosciuto).\n\nNode id visti dall'hub e non assegnati: {unknown}",
+        "data": {
+          "parent_id": "Hub / gateway",
+          "node_id": "Node id"
         }
       }
     },
@@ -117,6 +125,9 @@
       },
       "switch_usb_n": {
         "name": "USB {index}"
+      },
+      "switch_weather": {
+        "name": "Pausa per meteo"
       }
     },
     "sensor": {
@@ -143,6 +154,15 @@
       },
       "fault": {
         "name": "Guasto"
+      },
+      "work_state": {
+        "name": "Stato"
+      },
+      "time_use": {
+        "name": "Tempo di irrigazione"
+      },
+      "use_time": {
+        "name": "Tempo di irrigazione"
       }
     },
     "select": {
@@ -160,6 +180,12 @@
       },
       "windspeed": {
         "name": "Velocità ventola"
+      },
+      "weather_delay": {
+        "name": "Ritardo meteo"
+      },
+      "work_state": {
+        "name": "Stato"
       }
     },
     "number": {
