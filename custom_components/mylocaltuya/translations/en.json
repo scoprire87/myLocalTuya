@@ -1,0 +1,174 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Link the Smart Life app",
+        "description": "Enter the **user code** of the Smart Life or Tuya app: you find it in *Me → Settings → Account and Security → User Code*.\n\nThe cloud is only used now to download devices and keys: control will be fully local.",
+        "data": {
+          "user_code": "User code"
+        }
+      },
+      "scan": {
+        "title": "Scan the QR code",
+        "description": "Open the Smart Life app, tap the scan icon in the top right corner, scan the code and confirm the login in the app. Then press **Submit**."
+      },
+      "devices": {
+        "title": "Choose devices",
+        "description": "Found {count} devices that can be controlled locally. IP address and protocol version are detected automatically.\n\nNot supported yet (gateway sub-devices or no DP mapping): {skipped}",
+        "data": {
+          "selected": "Devices"
+        }
+      }
+    },
+    "error": {
+      "invalid_user_code": "Invalid user code.",
+      "cannot_connect": "Cannot reach the Tuya cloud.",
+      "login_failed": "Login not confirmed yet: scan the QR code and confirm in the app, then try again.",
+      "no_selection": "Select at least one device."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "cannot_fetch_devices": "Cannot download devices from the Tuya cloud. If this keeps happening, log in again with the QR code.",
+      "no_devices": "No locally controllable devices found in the account.",
+      "reauth_successful": "Login renewed.",
+      "wrong_account": "You logged in with a different account."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "myLocalTuya",
+        "menu_options": {
+          "refresh": "Refresh devices and keys from the cloud",
+          "pick_device": "Set IP address manually",
+          "relogin": "Log in again with the QR code"
+        }
+      },
+      "refresh": {
+        "title": "Refresh devices and keys from the cloud",
+        "description": "Download local keys and device functions again. You can also add or remove devices.",
+        "data": {
+          "selected": "Devices"
+        }
+      },
+      "pick_device": {
+        "title": "Set IP address manually",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "device": {
+        "title": "{name}",
+        "description": "Only use this if automatic detection does not work (e.g. Home Assistant in Docker without host networking).\n\nLast known IP: {host} · protocol: {version}\n\nLeave the IP empty to go back to automatic detection.",
+        "data": {
+          "manual_host": "IP address",
+          "version": "Protocol version"
+        }
+      }
+    },
+    "abort": {
+      "cannot_fetch_devices": "Cannot download devices from the Tuya cloud. If this keeps happening, log in again with the QR code.",
+      "reauth_started": "Login started: complete the \"Reauthentication required\" notification in Home Assistant."
+    }
+  },
+  "entity": {
+    "switch": {
+      "child_lock": {
+        "name": "Child lock"
+      },
+      "anion": {
+        "name": "Ionizer"
+      },
+      "sleep": {
+        "name": "Sleep mode"
+      },
+      "health": {
+        "name": "Health mode"
+      },
+      "lock": {
+        "name": "Lock"
+      },
+      "swing": {
+        "name": "Swing"
+      },
+      "switch_backlight": {
+        "name": "Backlight"
+      },
+      "light": {
+        "name": "Light"
+      },
+      "beep": {
+        "name": "Beep"
+      },
+      "fan_beep": {
+        "name": "Beep"
+      },
+      "eco": {
+        "name": "Eco"
+      },
+      "overcharge_switch": {
+        "name": "Overload protection"
+      },
+      "switch_usb": {
+        "name": "USB"
+      },
+      "switch_n": {
+        "name": "Switch {index}"
+      },
+      "switch_usb_n": {
+        "name": "USB {index}"
+      }
+    },
+    "sensor": {
+      "cur_power": {
+        "name": "Power"
+      },
+      "cur_current": {
+        "name": "Current"
+      },
+      "cur_voltage": {
+        "name": "Voltage"
+      },
+      "add_ele": {
+        "name": "Energy"
+      },
+      "temp_current": {
+        "name": "Temperature"
+      },
+      "humidity_value": {
+        "name": "Humidity"
+      },
+      "battery_percentage": {
+        "name": "Battery"
+      },
+      "fault": {
+        "name": "Fault"
+      }
+    },
+    "select": {
+      "relay_status": {
+        "name": "Power-on behavior"
+      },
+      "light_mode": {
+        "name": "Indicator light mode"
+      },
+      "work_mode": {
+        "name": "Work mode"
+      },
+      "mode": {
+        "name": "Mode"
+      },
+      "windspeed": {
+        "name": "Fan speed"
+      }
+    },
+    "number": {
+      "countdown": {
+        "name": "Timer"
+      },
+      "countdown_n": {
+        "name": "Timer {index}"
+      }
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Collega l'app Smart Life",
+        "description": "Inserisci il **codice utente** dell'app Smart Life o Tuya: lo trovi in *Io → Impostazioni → Account e sicurezza → Codice utente*.\n\nIl cloud viene usato solo ora per scaricare dispositivi e chiavi: il controllo sarà tutto locale.",
+        "data": {
+          "user_code": "Codice utente"
+        }
+      },
+      "scan": {
+        "title": "Inquadra il QR code",
+        "description": "Apri l'app Smart Life, tocca l'icona di scansione in alto a destra, inquadra il codice e conferma l'accesso nell'app. Poi premi **Invia**."
+      },
+      "devices": {
+        "title": "Scegli i dispositivi",
+        "description": "Trovati {count} dispositivi controllabili in locale. IP e versione del protocollo verranno rilevati automaticamente.\n\nNon supportati per ora (sotto-dispositivi di gateway o senza mappatura): {skipped}",
+        "data": {
+          "selected": "Dispositivi"
+        }
+      }
+    },
+    "error": {
+      "invalid_user_code": "Codice utente non valido.",
+      "cannot_connect": "Impossibile contattare il cloud Tuya.",
+      "login_failed": "Accesso non ancora confermato: inquadra il QR code e conferma nell'app, poi riprova.",
+      "no_selection": "Seleziona almeno un dispositivo."
+    },
+    "abort": {
+      "already_configured": "Questo account è già configurato.",
+      "cannot_fetch_devices": "Impossibile scaricare i dispositivi dal cloud Tuya. Se il problema persiste, rifai l'accesso con il QR code.",
+      "no_devices": "Nessun dispositivo controllabile in locale trovato nell'account.",
+      "reauth_successful": "Accesso rinnovato.",
+      "wrong_account": "Hai effettuato l'accesso con un account diverso."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "myLocalTuya",
+        "menu_options": {
+          "refresh": "Aggiorna dispositivi e chiavi dal cloud",
+          "pick_device": "Imposta IP manualmente",
+          "relogin": "Rifai l'accesso con il QR code"
+        }
+      },
+      "refresh": {
+        "title": "Aggiorna dispositivi e chiavi dal cloud",
+        "description": "Scarica di nuovo chiavi locali e funzioni dei dispositivi. Puoi anche aggiungere o togliere dispositivi.",
+        "data": {
+          "selected": "Dispositivi"
+        }
+      },
+      "pick_device": {
+        "title": "Imposta IP manualmente",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "device": {
+        "title": "{name}",
+        "description": "Usa questa opzione solo se il rilevamento automatico non funziona (ad esempio Home Assistant in Docker senza rete host).\n\nUltimo IP noto: {host} · protocollo: {version}\n\nLascia l'IP vuoto per tornare al rilevamento automatico.",
+        "data": {
+          "manual_host": "Indirizzo IP",
+          "version": "Versione protocollo"
+        }
+      }
+    },
+    "abort": {
+      "cannot_fetch_devices": "Impossibile scaricare i dispositivi dal cloud Tuya. Se il problema persiste, rifai l'accesso con il QR code.",
+      "reauth_started": "Accesso avviato: completa la notifica \"Riautenticazione richiesta\" in Home Assistant."
+    }
+  },
+  "entity": {
+    "switch": {
+      "child_lock": {
+        "name": "Blocco bambini"
+      },
+      "anion": {
+        "name": "Ionizzatore"
+      },
+      "sleep": {
+        "name": "Modalità notte"
+      },
+      "health": {
+        "name": "Modalità salute"
+      },
+      "lock": {
+        "name": "Blocco"
+      },
+      "swing": {
+        "name": "Oscillazione"
+      },
+      "switch_backlight": {
+        "name": "Retroilluminazione"
+      },
+      "light": {
+        "name": "Luce"
+      },
+      "beep": {
+        "name": "Segnale acustico"
+      },
+      "fan_beep": {
+        "name": "Segnale acustico"
+      },
+      "eco": {
+        "name": "Eco"
+      },
+      "overcharge_switch": {
+        "name": "Protezione sovraccarico"
+      },
+      "switch_usb": {
+        "name": "USB"
+      },
+      "switch_n": {
+        "name": "Interruttore {index}"
+      },
+      "switch_usb_n": {
+        "name": "USB {index}"
+      }
+    },
+    "sensor": {
+      "cur_power": {
+        "name": "Potenza"
+      },
+      "cur_current": {
+        "name": "Corrente"
+      },
+      "cur_voltage": {
+        "name": "Tensione"
+      },
+      "add_ele": {
+        "name": "Energia"
+      },
+      "temp_current": {
+        "name": "Temperatura"
+      },
+      "humidity_value": {
+        "name": "Umidità"
+      },
+      "battery_percentage": {
+        "name": "Batteria"
+      },
+      "fault": {
+        "name": "Guasto"
+      }
+    },
+    "select": {
+      "relay_status": {
+        "name": "Comportamento all'accensione"
+      },
+      "light_mode": {
+        "name": "Modalità indicatore"
+      },
+      "work_mode": {
+        "name": "Modalità di lavoro"
+      },
+      "mode": {
+        "name": "Modalità"
+      },
+      "windspeed": {
+        "name": "Velocità ventola"
+      }
+    },
+    "number": {
+      "countdown": {
+        "name": "Timer"
+      },
+      "countdown_n": {
+        "name": "Timer {index}"
+      }
+    }
+  }
+}
