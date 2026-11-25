@@ -144,11 +144,74 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyLocalTuyaConfigEntry) 
             via_device=(DOMAIN, parent) if parent in runtime.devices else None,
         )
 
+    # Drop registry devices that are no longer configured
+    for dev_entry in dr.async_entries_for_config_entry(registry, entry.entry_id):
+        ids = {i for domain, i in dev_entry.identifiers if domain == DOMAIN}
+        if not ids & runtime.devices.keys():
+            registry.async_update_device(
+                dev_entry.id, remove_config_entry_id=entry.entry_id
+            )
+
     for device in runtime.devices.values():
         if isinstance(device, TuyaLocalDevice):
             device.async_start()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Devices removed from the Smart Life app disappear here too
+    entry.async_create_background_task(
+        hass, async_remove_deleted_devices(hass, entry), "mylocaltuya_sync"
+    )
+    return True
+
+
+async def async_remove_deleted_devices(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove devices that are no longer in the Tuya account."""
+    cloud = TuyaCloud(
+        entry.data[CONF_USER_CODE],
+        entry.data[CONF_TERMINAL_ID],
+        entry.data[CONF_ENDPOINT],
+        entry.data[CONF_TOKEN_INFO],
+    )
+    try:
+        in_cloud = await hass.async_add_executor_job(cloud.list_device_ids)
+    except CloudError as err:
+        _LOGGER.debug("Cannot check removed devices: %s", err)
+        return
+    configured = entry.data[CONF_DEVICES]
+    removed = set(configured) - in_cloud
+    if not removed:
+        return
+    _LOGGER.info(
+        "Removing devices deleted from the Smart Life app: %s",
+        ", ".join(configured[i].get("name", i) for i in removed),
+    )
+    hass.config_entries.async_update_entry(
+        entry,
+        data={
+            **entry.data,
+            CONF_DEVICES: {i: c for i, c in configured.items() if i not in removed},
+            CONF_TOKEN_INFO: cloud.token_info,
+        },
+    )
+    hass.config_entries.async_schedule_reload(entry.entry_id)
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry
+) -> bool:
+    """Allow deleting a device from the UI (it stops being controlled)."""
+    ids = {i for domain, i in device_entry.identifiers if domain == DOMAIN}
+    configured = entry.data[CONF_DEVICES]
+    if ids & configured.keys():
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_DEVICES: {i: c for i, c in configured.items() if i not in ids},
+            },
+        )
+        hass.config_entries.async_schedule_reload(entry.entry_id)
     return True
 
 

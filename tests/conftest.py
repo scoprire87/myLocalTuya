@@ -116,6 +116,24 @@ class FakeTuya:
                 pass
 
 
+@pytest.fixture(autouse=True)
+def cloud_ids():
+    """Cloud device list used by the startup sync (default: cloud unreachable)."""
+    from custom_components.mylocaltuya.cloud import CloudError
+
+    state = {"ids": None}
+
+    def _list(self):
+        if state["ids"] is None:
+            raise CloudError("offline in tests")
+        return set(state["ids"])
+
+    with patch(
+        "custom_components.mylocaltuya.cloud.TuyaCloud.list_device_ids", _list
+    ):
+        yield state
+
+
 @pytest.fixture
 def fake_tuya():
     """Patch tinytuya.Device."""

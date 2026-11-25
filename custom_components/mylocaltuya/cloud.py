@@ -171,6 +171,20 @@ class TuyaCloud:
             raise CloudError(f"{path}: {response}")
         return response.get("result")
 
+    def list_device_ids(self) -> set[str]:
+        """Ids of all devices currently in the account (no details)."""
+        homes = self._get("/v1.0/m/life/users/homes") or []
+        if not homes:
+            # Never treat an empty answer as "everything was removed"
+            raise CloudError("no homes returned")
+        ids: set[str] = set()
+        for home in homes:
+            items = self._get(
+                "/v1.0/m/life/ha/home/devices", {"homeId": str(home["ownerId"])}
+            )
+            ids.update(item["id"] for item in items or [] if "id" in item)
+        return ids
+
     def fetch_devices(self, only: set[str] | None = None) -> list[dict[str, Any]]:
         """Download devices with local keys and DP tables."""
         homes = self._get("/v1.0/m/life/users/homes") or []

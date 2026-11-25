@@ -34,6 +34,8 @@ Il codice utente si trova nell'app Smart Life in *Io → Impostazioni → Accoun
 - **Imposta IP manualmente**: solo se i broadcast UDP non arrivano (es. Home Assistant in Docker senza `network_mode: host`). Servono le porte UDP 6666, 6667 e 7000.
 - **Rifai l'accesso con il QR code**: se il token cloud è scaduto.
 
+I dispositivi **eliminati dall'app Smart Life** vengono rimossi automaticamente all'avvio di Home Assistant (o subito con *Aggiorna dispositivi e chiavi dal cloud*). Puoi anche eliminare un dispositivo a mano dalla sua pagina in Home Assistant: smette di essere controllato.
+
 Può convivere con Tuya / Xtend Tuya mentre lo provi (i dispositivi compariranno due volte).
 
 ## Hub e sotto-dispositivi

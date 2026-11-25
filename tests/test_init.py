@@ -188,3 +188,58 @@ async def test_gateway_sub_device(hass: HomeAssistant, fake_tuya) -> None:
     await _wait(hass, lambda: hass.states.get("switch.timer").state == STATE_UNAVAILABLE)
 
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_devices_removed_from_app(hass: HomeAssistant, fake_tuya, cloud_ids) -> None:
+    """Devices deleted in Smart Life are removed from the entry and the registry."""
+    from homeassistant.helpers import device_registry as dr
+
+    from .fixtures import hub_conf, valve_conf
+
+    fake_tuya.gateways = {"hub1": {"node-abc": True}}
+    fake_tuya.state = {
+        "plug1": {"1": True},
+        "hub1": {},
+        "valve1": {"1": False},
+    }
+    entry = _entry()
+    entry.add_to_hass(hass)
+    devices = {
+        "plug1": entry.data["devices"]["plug1"],
+        "hub1": hub_conf("hub1", "Irrigazione"),
+        "valve1": valve_conf("valve1", "Timer", parent="hub1", node_id="node-abc"),
+    }
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "devices": devices})
+    cloud_ids["ids"] = {"plug1"}  # hub and timer deleted in the app
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await _wait(hass, lambda: list(entry.data["devices"]) == ["plug1"])
+    await _wait(hass, lambda: hass.states.get("switch.presa").state == "on")
+
+    registry = dr.async_get(hass)
+    assert registry.async_get_device(identifiers={(DOMAIN, "hub1")}) is None
+    assert registry.async_get_device(identifiers={(DOMAIN, "valve1")}) is None
+    assert registry.async_get_device(identifiers={(DOMAIN, "plug1")}) is not None
+    assert hass.states.get("switch.timer") is None or hass.states.get(
+        "switch.timer"
+    ).state == STATE_UNAVAILABLE
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_remove_device_from_ui(hass: HomeAssistant, fake_tuya) -> None:
+    """Deleting a device in the UI stops controlling it."""
+    from homeassistant.helpers import device_registry as dr
+
+    from custom_components.mylocaltuya import async_remove_config_entry_device
+
+    fake_tuya.state = {"plug1": {"1": True}, "bulb1": {"20": True}, "ac1": {"1": False}}
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, "bulb1")})
+    assert await async_remove_config_entry_device(hass, entry, device)
+    await _wait(hass, lambda: "bulb1" not in entry.data["devices"])
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_unload(entry.entry_id)
